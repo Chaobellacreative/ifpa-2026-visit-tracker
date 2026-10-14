@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#152b25"><title>IFPA 2026 • Visit Tracker</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#152b25;background:#f5f6f2}*{box-sizing:border-box}
+body{margin:0}header{background:#152b25;color:white;padding:22px 18px 15px;position:sticky;top:0;z-index:2}h1{font-size:22px;margin:0 0 5px}header p{font-size:12px;opacity:.8;margin:0}
+main{max-width:720px;margin:auto;padding:15px 14px 100px}.tabs{display:flex;gap:7px;overflow:auto;margin:0 0 12px}
+button{cursor:pointer;font:inherit}.tab{border:1px solid #d5ddd6;border-radius:20px;padding:9px 14px;background:white;white-space:nowrap;color:#244239}
+.tab.active{background:#244b3d;color:white}.tools{display:flex;gap:8px;margin-bottom:12px}.tools input{flex:1;min-width:0;padding:12px;border:1px solid #d5ddd6;border-radius:12px;font:inherit}
+.summary{font-size:13px;color:#586b60;margin:0 0 12px}.item{background:white;border:1px solid #e1e5df;border-radius:14px;margin-bottom:9px;overflow:hidden}
+.item-head{display:flex;align-items:center;gap:8px;padding:13px}.name{font-weight:650;flex:1;min-width:0}.pill{font-size:11px;color:#536b5d;background:#edf2ed;padding:5px 7px;border-radius:10px}
+.expand{border:0;background:transparent;font-size:21px;color:#536b5d}.details{padding:0 13px 13px;display:none}.item.open .details{display:block}
+.states{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.state{border:1px solid #d8e0d8;background:white;border-radius:9px;padding:7px 9px;font-size:12px}
+.state.selected{background:#234c3c;color:white;border-color:#234c3c}textarea{width:100%;min-height:72px;resize:vertical;border:1px solid #d8e0d8;border-radius:10px;padding:10px;font:inherit}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #dce3dd;padding:9px 12px calc(9px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:8px}
+footer button{background:#eaf0eb;border:0;border-radius:10px;padding:11px 14px;color:#234c3c;font-weight:600}#importFile{display:none}
+small{display:block;color:#64776b;margin:8px 2px} .empty{padding:25px;text-align:center;color:#64776b}
+</style></head><body>
+<header><h1>IFPA 2026 · Visit Tracker</h1><p>Supplier connections • Quick notes • Offline on this device</p></header>
+<main><div class="tabs" id="tabs"></div><div class="tools"><input id="search" placeholder="Find supplier…" aria-label="Find supplier"></div><div class="summary" id="summary"></div><div id="items"></div><small>Notes save automatically on this device. Export a backup before changing phones or browsers. Bea's list is for connection follow-up.</small></main>
+<footer><button id="export">Export backup</button><button id="import">Import backup</button><input id="importFile" type="file" accept=".json,application/json"></footer>
+<script>
+const suppliers=[{"id": "laura-0", "buyer": "Laura", "name": "Southern Specialties"}, {"id": "laura-1", "buyer": "Laura", "name": "Altar"}, {"id": "laura-2", "buyer": "Laura", "name": "Ecoripe"}, {"id": "laura-3", "buyer": "Laura", "name": "Organzo"}, {"id": "laura-4", "buyer": "Laura", "name": "Yu An"}, {"id": "laura-5", "buyer": "Laura", "name": "Double Green"}, {"id": "laura-6", "buyer": "Laura", "name": "Vega"}, {"id": "laura-7", "buyer": "Laura", "name": "Rock Garden"}, {"id": "laura-8", "buyer": "Laura", "name": "From the South"}, {"id": "laura-9", "buyer": "Laura", "name": "M&M"}, {"id": "laura-10", "buyer": "Laura", "name": "Sunrise"}, {"id": "yasmin-0", "buyer": "Yasmin", "name": "Driscoll's"}, {"id": "yasmin-1", "buyer": "Yasmin", "name": "Wish Farms"}, {"id": "yasmin-2", "buyer": "Yasmin", "name": "California Giant"}, {"id": "yasmin-3", "buyer": "Yasmin", "name": "CBS"}, {"id": "yasmin-4", "buyer": "Yasmin", "name": "Mucci"}, {"id": "yasmin-5", "buyer": "Yasmin", "name": "Great Lakes"}, {"id": "yasmin-6", "buyer": "Yasmin", "name": "Nature Fresh"}, {"id": "yasmin-7", "buyer": "Yasmin", "name": "Sunset Produce"}, {"id": "yasmin-8", "buyer": "Yasmin", "name": "Always Fresh"}, {"id": "yasmin-9", "buyer": "Yasmin", "name": "Myrrick"}, {"id": "yasmin-10", "buyer": "Yasmin", "name": "Yates"}, {"id": "bea-0", "buyer": "Bea", "name": "Pacific Shores"}, {"id": "bea-1", "buyer": "Bea", "name": "Mack Farms"}, {"id": "bea-2", "buyer": "Bea", "name": "Chelan"}, {"id": "bea-3", "buyer": "Bea", "name": "River Ridge"}, {"id": "bea-4", "buyer": "Bea", "name": "Burch Farms"}, {"id": "bea-5", "buyer": "Bea", "name": "XO Produce"}, {"id": "bea-6", "buyer": "Bea", "name": "Sweet Season"}, {"id": "bea-7", "buyer": "Bea", "name": "Seminole Produce"}, {"id": "bea-8", "buyer": "Bea", "name": "Noble"}, {"id": "bea-9", "buyer": "Bea", "name": "Cabbage Inc."}];
+const states=["Not contacted","Connected","Follow up","Completed"];
+let selected="All";
+const key="ifpa2026-tracker-v1";
+let saved={};try{saved=JSON.parse(localStorage.getItem(key)||"{}")}catch{}
+const persist=()=>localStorage.setItem(key,JSON.stringify(saved));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function render(){
+document.getElementById("tabs").innerHTML=["All","Laura","Yasmin","Bea"].map(b=>`<button class="tab ${selected===b?"active":""}" data-b="${b}">${b}</button>`).join("");
+const q=document.getElementById("search").value.toLowerCase().trim();
+const shown=suppliers.filter(s=>(selected==="All"||s.buyer===selected)&&s.name.toLowerCase().includes(q));
+const completed=shown.filter(s=>["Connected","Completed"].includes((saved[s.id]||{}).status)).length;
+document.getElementById("summary").textContent=`${shown.length} suppliers · ${completed} connected/completed`;
+document.getElementById("items").innerHTML=shown.map(s=>{let v=saved[s.id]||{},status=v.status||"Not contacted";return `<article class="item" data-id="${s.id}"><div class="item-head"><span class="name">${esc(s.name)}</span>${selected==="All"?`<span class="pill">${s.buyer}</span>`:""}<span class="pill">${esc(status)}</span><button class="expand" aria-label="Expand ${esc(s.name)}">⌄</button></div><div class="details"><div class="states">${states.map(st=>`<button class="state ${status===st?"selected":""}" data-status="${st}">${st}</button>`).join("")}</div><textarea placeholder="Contact, discussion, products, next step…" aria-label="Notes for ${esc(s.name)}">${esc(v.note||"")}</textarea></div></article>`}).join("")||'<div class="empty">No suppliers found</div>';
+}
+document.getElementById("tabs").onclick=e=>{const b=e.target.closest("[data-b]");if(b){selected=b.dataset.b;render()}};
+document.getElementById("search").oninput=render;
+document.getElementById("items").onclick=e=>{const a=e.target.closest(".item");if(!a)return;const id=a.dataset.id;if(e.target.closest(".expand")||e.target.closest(".item-head")&&!e.target.closest(".pill")){a.classList.toggle("open");return}const b=e.target.closest("[data-status]");if(b){saved[id]={...(saved[id]||{}),status:b.dataset.status};persist();const opened=a.classList.contains("open");render();if(opened)document.querySelector(`[data-id="${id}"]`).classList.add("open")}};
+document.getElementById("items").oninput=e=>{if(e.target.matches("textarea")){let id=e.target.closest(".item").dataset.id;saved[id]={...(saved[id]||{}),note:e.target.value};persist()}};
+document.getElementById("export").onclick=()=>{const blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),saved},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ifpa-2026-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+document.getElementById("import").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!x.saved||typeof x.saved!=="object"||Array.isArray(x.saved))throw Error("Invalid backup");if(confirm("Replace existing notes with this backup?")){saved=x.saved;persist();render()}}catch(err){alert("Could not import backup: "+err.message)}e.target.value=""};
+render();
+</script></body></html>
